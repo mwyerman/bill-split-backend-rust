@@ -1,13 +1,13 @@
 use crate::api::handlers::basic_handler;
 use crate::api::handlers::bill_handler;
-use crate::config::data_config::DataConfig;
+use crate::config::Config;
 use axum::{
     routing::get,
     Router,
 };
 
 
-pub fn routes(config: DataConfig) -> Router {
+pub fn routes(config: Config) -> Router {
     Router::new()
         .fallback(basic_handler::fallback)
         .route("/",
