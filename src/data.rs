@@ -97,8 +97,14 @@ mod tests {
         let bill = Bill::new("test".to_string());
         let id = data.add_bill(&bill);
         let bills = data.get_bills();
-        assert_eq!(bills.len(), 1);
-        assert_eq!(bills[0].id, id);
-        assert_eq!(bills[0].bill, bill);
+
+        let bill_with_id = BillWithId {
+            id,
+            bill
+        };
+
+
+        // assert bill_with_id is in bills
+        assert_eq!(bills.contains(&bill_with_id), true);
     }
 }
