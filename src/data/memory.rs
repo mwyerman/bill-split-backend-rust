@@ -28,11 +28,11 @@ impl Data for Memory {
         id
     }
 
-    fn delete_bill(&self, id: Uuid) -> bool {
+    fn delete_bill(&self, id: Uuid) -> Result<Uuid, String> {
         let mut data = DATA.lock().unwrap();
         match data.remove(&id) {
-            Some(_) => true,
-            None => false
+            Some(_) => Ok(id),
+            None => Err("Bill not found".to_string())
         }
     }
 
@@ -54,6 +54,17 @@ impl Data for Memory {
         }).collect::<Vec<BillWithId>>();
         vec
     }
+
+    fn update_bill(&self, id: Uuid, bill: &Bill) -> Result<Uuid, String> {
+        let mut data = DATA.lock().unwrap();
+        match data.get_mut(&id) {
+            Some(existing_bill) => {
+                *existing_bill = bill.clone();
+                Ok(id)
+            },
+            None => Err("Bill not found".to_string())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -73,8 +84,8 @@ mod tests {
         let data = Memory::new();
         let bill = Bill::new("test".to_string());
         let id = data.add_bill(&bill);
-        assert_eq!(data.delete_bill(id), true);
-        assert_eq!(data.delete_bill(id), false);
+        assert_eq!(data.delete_bill(id), Ok(id));
+        assert_eq!(data.delete_bill(id), Err("Bill not found".to_string()));
     }
 
     #[test]
@@ -96,5 +107,15 @@ mod tests {
             bill
         };
         assert_eq!(bills.contains(&bill_with_id), true);
+    }
+
+    #[test]
+    fn test_update_bill() {
+        let data = Memory::new();
+        let bill = Bill::new("test".to_string());
+        let id = data.add_bill(&bill);
+        let bill = Bill::new("test2".to_string());
+        assert_eq!(data.update_bill(id, &bill), Ok(id));
+        assert_eq!(data.get_bill(id).unwrap(), bill);
     }
 }
