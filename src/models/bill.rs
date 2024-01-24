@@ -47,7 +47,7 @@ impl Bill {
     }
 }
 
-#[derive(Debug, Serialize, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, Eq, Hash, PartialEq)]
 pub struct BillWithId {
     pub id: Uuid,
     pub bill: Bill,
