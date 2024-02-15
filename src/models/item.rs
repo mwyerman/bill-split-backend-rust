@@ -5,23 +5,27 @@ use crate::models::currency::Currency;
 pub struct LineItem {
     pub name: String,
     pub price: Currency,
+    pub orderer: Option<String>,
 }
 
 impl LineItem {
     pub fn new() -> Self {
         Self {
             name: "".to_string(),
-            price: Currency::new(),
+            price: 0,
+            orderer: None,
         }
     }
 
     pub fn from(
         name: String,
-        price: f64,
+        price: u64,
+        orderer: Option<String>,
     ) -> Self {
         Self {
             name,
-            price: Currency::from_dollars(price),
+            price,
+            orderer,
         }
     }
 }
@@ -34,16 +38,18 @@ mod tests {
     fn test_new() {
         let item = LineItem::new();
         assert_eq!(item.name, "");
-        assert_eq!(item.price.to_cents(), 0);
+        assert_eq!(item.price, 0);
     }
 
     #[test]
     fn test_from() {
         let item = LineItem::from(
             "test".to_string(),
-            1.0,
+            100,
+            Some("test".to_string()),
         );
         assert_eq!(item.name, "test");
-        assert_eq!(item.price.to_cents(), 100);
+        assert_eq!(item.price, 100);
+        assert_eq!(item.orderer, Some("test".to_string()));
     }
 }
