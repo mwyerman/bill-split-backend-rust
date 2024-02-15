@@ -7,12 +7,9 @@ use crate::models::currency::Currency;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq)]
 pub struct Bill {
-    pub name: String,
-    pub subtotal: Option<Currency>,
-    pub tax: Option<Currency>,
-    pub tip: Option<Currency>,
-    pub total: Option<Currency>,
-    pub items: HashMap<u16, LineItem>,
+    name: String,
+    total: Option<Currency>,
+    items: HashMap<u16, LineItem>,
     counter: u16,
 }
 
@@ -20,9 +17,6 @@ impl Bill {
     pub fn new(name: String) -> Self {
         Self {
             name,
-            subtotal: None,
-            tax: None,
-            tip: None,
             total: None,
             items: HashMap::new(),
             counter: 0,
@@ -31,16 +25,10 @@ impl Bill {
 
     pub fn from(
         name: String,
-        subtotal: Option<Currency>,
-        tax: Option<Currency>,
-        tip: Option<Currency>,
-        total: Option<Currency>
+        total: Currency,
     ) -> Self {
         let mut bill = Self::new(name);
-        bill.subtotal = subtotal;
-        bill.tax = tax;
-        bill.tip = tip;
-        bill.total = total;
+        bill.total = Some(total);
         bill
     }
 
@@ -71,6 +59,33 @@ impl Bill {
             None => Err("Item not found".to_string())
         }
     }
+
+    pub fn calculate_subtotal(&self) -> Currency {
+        let mut total = 0;
+        for (_, item) in &self.items {
+            total += item.price;
+        }
+        total
+    }
+
+    pub fn get_bill_for(&self, orderer: &str) -> Bill {
+        let mut bill = Bill::new(self.name.clone());
+        for (_, item) in &self.items {
+            if item.orderer == Some(orderer.to_string()) {
+                bill.add_item(item.clone());
+            }
+        }
+
+        // split the total proportionally
+        if !self.total.is_none() {
+            let my_subtotal = bill.calculate_subtotal();
+            let all_subtotal = self.calculate_subtotal();
+            let ratio = my_subtotal as f64 / all_subtotal as f64;
+            let total = self.total.unwrap() as f64;
+            bill.total = Some((total * ratio) as Currency);
+        }
+        bill
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq)]
@@ -88,9 +103,6 @@ mod tests {
         let bill = Bill::new("test".to_string());
         assert_eq!(bill.name, "test");
         assert_eq!(bill.items.len(), 0);
-        assert_eq!(bill.subtotal, None);
-        assert_eq!(bill.tax, None);
-        assert_eq!(bill.tip, None);
         assert_eq!(bill.total, None);
     }
 
@@ -98,23 +110,17 @@ mod tests {
     fn test_from() {
         let bill = Bill::from(
             "test".to_string(),
-            Some(Currency::from_dollars(1.0)),
-            Some(Currency::from_dollars(0.1)),
-            Some(Currency::from_dollars(0.1)),
-            Some(Currency::from_dollars(1.2)),
+            120,
         );
         assert_eq!(bill.name, "test");
         assert_eq!(bill.items.len(), 0);
-        assert_eq!(bill.subtotal, Some(Currency::from_dollars(1.0)));
-        assert_eq!(bill.tax, Some(Currency::from_dollars(0.1)));
-        assert_eq!(bill.tip, Some(Currency::from_dollars(0.1)));
-        assert_eq!(bill.total, Some(Currency::from_dollars(1.2)));
+        assert_eq!(bill.total, Some(120));
     }
 
     #[test]
     fn test_add_item() {
         let mut bill = Bill::new("test".to_string());
-        let item = LineItem::from("test".to_string(), 1.0);
+        let item = LineItem::from("test".to_string(), 100, None);
         let id = bill.add_item(item.clone());
         assert_eq!(bill.items.get(&id).unwrap(), &item);
     }
@@ -122,7 +128,7 @@ mod tests {
     #[test]
     fn test_delete_item() {
         let mut bill = Bill::new("test".to_string());
-        let item = LineItem::from("test".to_string(), 1.0);
+        let item = LineItem::from("test".to_string(), 100, None);
         let id = bill.add_item(item.clone());
         assert_eq!(bill.delete_item(id), Ok(id));
         assert_eq!(bill.delete_item(id), Err("Item not found".to_string()));
@@ -131,11 +137,60 @@ mod tests {
     #[test]
     fn test_update_item() {
         let mut bill = Bill::new("test".to_string());
-        let item = LineItem::from("test".to_string(), 1.0);
+        let item = LineItem::from("test".to_string(), 100, None);
         let id = bill.add_item(item.clone());
-        let item = LineItem::from("test2".to_string(), 2.0);
+        let item = LineItem::from("test2".to_string(), 200, None);
         assert_eq!(bill.update_item(id, item.clone()), Ok(id));
         assert_eq!(bill.items.get(&id).unwrap(), &item);
         assert_eq!(bill.update_item(100, item.clone()), Err("Item not found".to_string()));
+    }
+
+    #[test]
+    fn test_calculate_subtotal() {
+        let mut bill = Bill::new("test".to_string());
+        let item = LineItem::from("test".to_string(), 100, None);
+        bill.add_item(item.clone());
+        let item = LineItem::from("test2".to_string(), 200, None);
+        bill.add_item(item.clone());
+        assert_eq!(bill.calculate_subtotal(), 300);
+    }
+
+    #[test]
+    fn test_get_bill_for() {
+        let mut bill = Bill::new("test".to_string());
+        let item = LineItem::from("test".to_string(), 100, Some("test".to_string()));
+        bill.add_item(item.clone());
+        let item = LineItem::from("test2".to_string(), 200, Some("test2".to_string()));
+        bill.add_item(item.clone());
+
+        let bill1 = bill.get_bill_for("test");
+        assert_eq!(bill1.total, None);
+        assert_eq!(bill1.items.len(), 1);
+        assert_eq!(bill1.calculate_subtotal(), 100);
+
+        let bill2 = bill.get_bill_for("test2");
+        assert_eq!(bill2.total, None);
+        assert_eq!(bill2.items.len(), 1);
+        assert_eq!(bill2.calculate_subtotal(), 200);
+    }
+
+    #[test]
+    fn test_get_bill_for_with_total() {
+        let mut bill = Bill::new("test".to_string());
+        bill.total = Some(330);
+        let item = LineItem::from("test".to_string(), 100, Some("test".to_string()));
+        bill.add_item(item.clone());
+        let item = LineItem::from("test2".to_string(), 200, Some("test2".to_string()));
+        bill.add_item(item.clone());
+
+        let bill1 = bill.get_bill_for("test");
+        assert_eq!(bill1.total, Some(110));
+        assert_eq!(bill1.items.len(), 1);
+        assert_eq!(bill1.calculate_subtotal(), 100);
+
+        let bill2 = bill.get_bill_for("test2");
+        assert_eq!(bill2.total, Some(220));
+        assert_eq!(bill2.items.len(), 1);
+        assert_eq!(bill2.calculate_subtotal(), 200);
     }
 }
