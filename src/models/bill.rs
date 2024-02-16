@@ -7,7 +7,7 @@ use crate::models::currency::Currency;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq)]
 pub struct Bill {
-    name: String,
+    pub name: String,
     total: Option<Currency>,
     items: HashMap<u16, LineItem>,
     counter: u16,

@@ -8,6 +8,7 @@ use std::thread;
 use uuid::Uuid;
 use crate::data::Data;
 use crate::config::Config;
+use crate::models::bill::Bill;
 
 pub async fn get_bills_route(State(config): State<Config>) -> impl IntoResponse {
     thread::spawn(move || {
@@ -32,6 +33,17 @@ pub async fn get_bill_from_id(
             },
             Err(_) => (StatusCode::BAD_REQUEST, axum::Json("Invalid UUID")).into_response()
         }
+    }).join().unwrap()
+}
+
+pub async fn new_empty_bill(
+    State(config): State<Config>,
+    extract::Json(name): extract::Json<String>,
+) -> impl IntoResponse {
+    thread::spawn(move || {
+        let bill = Bill::new(name);
+        let res = config.data.provider.add_bill(&bill);
+        axum::Json(res)
     }).join().unwrap()
 }
 

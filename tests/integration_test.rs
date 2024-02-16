@@ -34,7 +34,7 @@ async fn test_get_bills() {
 
     let new_bill = Bill::new("test".to_string());
     let response = client
-        .post("http://localhost:3000/bill")
+        .post("http://localhost:3000/bill/insert")
         .json(&new_bill)
         .send()
         .await
@@ -94,6 +94,27 @@ async fn test_get_bills() {
     let body = response.text().await.unwrap();
     let bills: Vec<BillWithId> = serde_json::from_str(&body).unwrap();
     assert_eq!(bills.len(), 0);
+
+    let response = client
+        .post("http://localhost:3000/bill/new")
+        .json("test")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let body = response.text().await.unwrap();
+    let body = &body[1..body.len() - 1];
+    let uuid = Uuid::parse_str(&body).unwrap();
+
+    let response = client
+        .get("http://localhost:3000/bill/".to_string() + &uuid.to_string())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let body = response.text().await.unwrap();
+    let bill: Bill = serde_json::from_str(&body).unwrap();
+    assert_eq!(bill.name, "test");
 
     stop_server(server);
 }

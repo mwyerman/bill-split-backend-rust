@@ -18,7 +18,9 @@ pub fn routes(config: Config) -> Router {
             get(bill_handler::get_bill_from_id)
                 .delete(bill_handler::delete_bill)
                 .put(bill_handler::update_bill)
-        ).route("/bill",
+        ).route("/bill/insert",
             post(bill_handler::create_bill)
+        ).route("/bill/new",
+            post(bill_handler::new_empty_bill)
         ).with_state(config)
 }
